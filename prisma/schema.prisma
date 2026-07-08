@@ -1,0 +1,96 @@
+// CyberShare URL Shortener - Prisma Schema
+// Works with SQLite (local dev) and Postgres (Neon on Vercel)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Admin users who can access the dashboard
+model AdminUser {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String // hashed with bcrypt
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  apiKeys ApiKey[]
+  links  Link[] @relation("CreatedByAdmin")
+}
+
+// API keys for programmatic access (Dub-style hashed keys)
+model ApiKey {
+  id          String    @id @default(cuid())
+  name        String // human-readable label
+  hashedKey   String    @unique // SHA-256 hash of the actual key
+  partialKey  String // last 4 chars for display (e.g. "...abcd")
+  expiresAt   DateTime?
+  lastUsedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  revokedAt   DateTime?
+  adminUserId String
+  adminUser   AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  links Link[]
+}
+
+// Shortened links
+model Link {
+  id          String    @id @default(cuid())
+  slug        String    @unique // the short code (e.g. "abc123")
+  url         String // target URL
+  title       String? // OG title
+  description String? // OG description
+  image       String? // OG image URL
+  comment     String? // internal note
+  password    String? // PBKDF2 hash if password-protected
+  expiresAt   DateTime?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  createdById String? // nullable: links can be created anonymously via public form (if enabled)
+  apiKeyId    String? // which API key created this (if created via API)
+  adminUser   AdminUser? @relation("CreatedByAdmin", fields: [createdById], references: [id])
+  apiKey      ApiKey?    @relation(fields: [apiKeyId], references: [id])
+
+  clicks Click[]
+
+  @@index([slug])
+  @@index([createdAt])
+  @@index([createdById])
+}
+
+// Click events - one row per redirect
+// For high-volume deployments, consider moving to Tinybird/ClickHouse
+model Click {
+  id        String   @id @default(cuid())
+  linkId    String
+  link      Link     @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  ip        String? // hashed for privacy
+  userAgent String?
+  referer   String?
+  country   String? // ISO country code
+  city      String?
+  region    String?
+  browser   String?
+  os        String?
+  device    String?
+  createdAt DateTime @default(now())
+
+  @@index([linkId])
+  @@index([createdAt])
+  @@index([country])
+}
+
+// App settings (key-value store for things like site name, public link creation toggle, etc.)
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
