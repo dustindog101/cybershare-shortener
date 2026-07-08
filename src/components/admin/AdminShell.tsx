@@ -5,13 +5,14 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
 import {
   LayoutDashboard, Link2, KeyRound, BarChart3, Settings,
-  LogOut, Menu, X, ExternalLink,
+  Shield, LogOut, Menu, X, ExternalLink,
 } from 'lucide-react'
 
 const NAV = [
   { href: '/admin', label: 'Overview', icon: LayoutDashboard },
   { href: '/admin/links', label: 'Links', icon: Link2 },
   { href: '/admin/analytics', label: 'Analytics', icon: BarChart3 },
+  { href: '/admin/security', label: 'Security', icon: Shield },
   { href: '/admin/api-keys', label: 'API Keys', icon: KeyRound },
   { href: '/admin/settings', label: 'Settings', icon: Settings },
 ]

@@ -51,6 +51,7 @@ model Link {
   password    String? // PBKDF2 hash if password-protected
   expiresAt   DateTime?
   isActive    Boolean   @default(true)
+  ipLoggingDisabled Boolean @default(false) // if true, don't log IP/UA for this link's clicks
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
@@ -72,10 +73,10 @@ model Click {
   id        String   @id @default(cuid())
   linkId    String
   link      Link     @relation(fields: [linkId], references: [id], onDelete: Cascade)
-  ip        String? // hashed for privacy
-  userAgent String?
+  ip        String? // hashed for privacy (null if IP logging disabled)
+  userAgent String? // null if IP logging disabled
   referer   String?
-  country   String? // ISO country code
+  country   String? // ISO country code (from Vercel geo header)
   city      String?
   region    String?
   browser   String?
@@ -86,6 +87,31 @@ model Click {
   @@index([linkId])
   @@index([createdAt])
   @@index([country])
+  @@index([ip])
+}
+
+// Admin login attempts — security audit log
+// Tracks every login attempt (success or failure) with IP and user-agent
+model LoginAttempt {
+  id        String   @id @default(cuid())
+  email     String // email that was attempted
+  success   Boolean
+  ip        String? // raw IP (admin login attempts are NOT hashed — security audit)
+  userAgent String?
+  country   String?
+  city      String?
+  region    String?
+  browser   String?
+  os        String?
+  device    String?
+  error     String? // reason for failure (if any)
+  adminId   String? // set on success
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([email])
+  @@index([ip])
+  @@index([success])
 }
 
 // App settings (key-value store for things like site name, public link creation toggle, etc.)

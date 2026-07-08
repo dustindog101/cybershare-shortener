@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { PageHeader, Card } from '@/components/admin/AdminShell'
-import { Plus, Search, ExternalLink, Trash2, Copy, Check, Power } from 'lucide-react'
+import { Plus, Search, ExternalLink, Trash2, Copy, Check, Power, Shield, ShieldOff } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
@@ -14,6 +14,7 @@ interface LinkItem {
   title: string | null
   comment: string | null
   isActive: boolean
+  ipLoggingDisabled: boolean
   expiresAt: string | null
   createdAt: string
   updatedAt: string
@@ -63,6 +64,16 @@ export default function AdminLinksPage() {
       body: JSON.stringify({ isActive: !link.isActive }),
     })
     setLinks(prev => prev.map(l => l.id === link.id ? { ...l, isActive: !l.isActive } : l))
+  }
+
+  async function toggleIpLogging(link: LinkItem) {
+    const newValue = !link.ipLoggingDisabled
+    await fetch(`/api/admin/links/${link.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ipLoggingDisabled: newValue }),
+    })
+    setLinks(prev => prev.map(l => l.id === link.id ? { ...l, ipLoggingDisabled: newValue } : l))
   }
 
   async function deleteLink(link: LinkItem, hard: boolean) {
@@ -133,6 +144,11 @@ export default function AdminLinksPage() {
                         disabled
                       </span>
                     )}
+                    {link.ipLoggingDisabled && (
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950 text-amber-700 dark:text-amber-300">
+                        no-IP
+                      </span>
+                    )}
                     {link.expiresAt && new Date(link.expiresAt) < new Date() && (
                       <span className="text-xs px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-950 text-red-700 dark:text-red-300">
                         expired
@@ -156,6 +172,17 @@ export default function AdminLinksPage() {
                   >
                     <ExternalLink className="w-4 h-4" />
                   </a>
+                  <button
+                    onClick={() => toggleIpLogging(link)}
+                    className={`p-2 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
+                      link.ipLoggingDisabled
+                        ? 'text-amber-600 dark:text-amber-400'
+                        : 'text-emerald-600 dark:text-emerald-400'
+                    }`}
+                    title={link.ipLoggingDisabled ? 'IP logging OFF — click to enable' : 'IP logging ON — click to disable for this link'}
+                  >
+                    {link.ipLoggingDisabled ? <ShieldOff className="w-4 h-4" /> : <Shield className="w-4 h-4" />}
+                  </button>
                   <button
                     onClick={() => toggleActive(link)}
                     className={`p-2 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 ${link.isActive ? 'text-emerald-600' : 'text-muted-foreground'}`}

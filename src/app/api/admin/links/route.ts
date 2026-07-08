@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     orderBy: { createdAt: 'desc' },
     select: {
       id: true, slug: true, url: true, title: true, comment: true,
-      isActive: true, expiresAt: true, createdAt: true, updatedAt: true,
+      isActive: true, ipLoggingDisabled: true, expiresAt: true, createdAt: true, updatedAt: true,
       _count: { select: { clicks: true } },
     },
   })

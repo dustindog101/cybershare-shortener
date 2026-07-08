@@ -17,7 +17,7 @@ export async function GET(
     where: { id },
     select: {
       id: true, slug: true, url: true, title: true, description: true, comment: true,
-      isActive: true, expiresAt: true, createdAt: true, updatedAt: true,
+      isActive: true, ipLoggingDisabled: true, expiresAt: true, createdAt: true, updatedAt: true,
       _count: { select: { clicks: true } },
     },
   })
@@ -56,6 +56,7 @@ export async function PATCH(
   if (typeof body.description === 'string') update.description = body.description.slice(0, 2048) || null
   if (typeof body.comment === 'string') update.comment = body.comment.slice(0, 2048) || null
   if (typeof body.isActive === 'boolean') update.isActive = body.isActive
+  if (typeof body.ipLoggingDisabled === 'boolean') update.ipLoggingDisabled = body.ipLoggingDisabled
   if (body.expiresAt !== undefined) {
     update.expiresAt = body.expiresAt ? new Date(body.expiresAt) : null
   }

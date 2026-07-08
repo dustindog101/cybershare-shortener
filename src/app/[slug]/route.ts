@@ -2,44 +2,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { waitUntil } from '@vercel/functions'
 import { hash } from 'crypto'
-
-/**
- * Parse User-Agent into browser, os, device (very lightweight, no dep).
- */
-function parseUserAgent(ua: string): { browser: string; os: string; device: string } {
-  const browser = /edg/i.test(ua) ? 'Edge'
-    : /opr|opera/i.test(ua) ? 'Opera'
-    : /chrome|crios/i.test(ua) ? 'Chrome'
-    : /firefox|fxios/i.test(ua) ? 'Firefox'
-    : /safari/i.test(ua) ? 'Safari'
-    : 'Other'
-  const os = /windows/i.test(ua) ? 'Windows'
-    : /android/i.test(ua) ? 'Android'
-    : /iphone|ipad|ipod/i.test(ua) ? 'iOS'
-    : /mac os/i.test(ua) ? 'macOS'
-    : /linux/i.test(ua) ? 'Linux'
-    : 'Other'
-  const device = /mobile|android|iphone/i.test(ua) ? 'Mobile'
-    : /ipad|tablet/i.test(ua) ? 'Tablet'
-    : 'Desktop'
-  return { browser, os, device }
-}
-
-function hashIp(ip: string): string {
-  return hash('sha256', ip + (process.env.NEXTAUTH_SECRET || 'salt')).slice(0, 16)
-}
-
-function getCountryFromRequest(request: NextRequest): { country?: string; city?: string; region?: string } {
-  const country = request.headers.get('x-vercel-ip-country') || undefined
-  const city = request.headers.get('x-vercel-ip-city') || undefined
-  const region = request.headers.get('x-vercel-ip-country-region') || undefined
-  return { country, city, region }
-}
+import { getRequestContext } from '@/lib/request-context'
+import { getSettingBool, SETTING_KEYS } from '@/lib/settings'
 
 /**
  * The catch-all redirect handler.
  * Matches /<slug> and redirects to the target URL.
  * Logs click event fire-and-forget via waitUntil (doesn't block redirect).
+ *
+ * IP/UA logging behavior:
+ *   - If link.ipLoggingDisabled === true → IP and UA are null
+ *   - If global setting "globalIpLogging" === false → IP and UA are null
+ *   - Otherwise IP is hashed (sha256, truncated) for privacy
  */
 export async function GET(
   request: NextRequest,
@@ -60,6 +34,7 @@ export async function GET(
       password: true,
       expiresAt: true,
       isActive: true,
+      ipLoggingDisabled: true,
     },
   })
 
@@ -77,30 +52,30 @@ export async function GET(
     return NextResponse.redirect(url)
   }
 
-  // Log click fire-and-forget — doesn't block the redirect
-  const ua = request.headers.get('user-agent') || ''
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-    || request.headers.get('x-real-ip')
-    || '0.0.0.0'
-  const referer = request.headers.get('referer') || undefined
-  const { country, city, region } = getCountryFromRequest(request)
-  const { browser, os, device } = ua ? parseUserAgent(ua) : { browser: 'Other', os: 'Other', device: 'Other' }
+  // Resolve IP logging flags
+  const globalIpLogging = await getSettingBool(SETTING_KEYS.globalIpLogging, true)
+  const shouldLogIp = globalIpLogging && !link.ipLoggingDisabled
 
+  // Get request context
+  const ctx = getRequestContext(request)
+
+  // Build click record (IP/UA null if logging disabled)
+  const clickData = {
+    linkId: link.id,
+    ip: shouldLogIp ? hash('sha256', ctx.ip + (process.env.NEXTAUTH_SECRET || 'salt')).slice(0, 16) : null,
+    userAgent: shouldLogIp ? ctx.userAgent.slice(0, 500) : null,
+    referer: ctx.userAgent ? (request.headers.get('referer')?.slice(0, 500) || null) : null,
+    country: ctx.country || null,
+    city: ctx.city || null,
+    region: ctx.region || null,
+    browser: shouldLogIp ? ctx.browser : null,
+    os: shouldLogIp ? ctx.os : null,
+    device: shouldLogIp ? ctx.device : null,
+  }
+
+  // Fire-and-forget: don't block the redirect
   waitUntil(
-    db.click.create({
-      data: {
-        linkId: link.id,
-        ip: hashIp(ip),
-        userAgent: ua.slice(0, 500),
-        referer: referer?.slice(0, 500),
-        country,
-        city,
-        region,
-        browser,
-        os,
-        device,
-      },
-    }).catch(() => {})
+    db.click.create({ data: clickData }).catch(() => {})
   )
 
   return NextResponse.redirect(link.url, {
