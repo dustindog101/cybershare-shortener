@@ -9,6 +9,7 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [needsSetup, setNeedsSetup] = useState<boolean | null>(null)
   const [mode, setMode] = useState<'login' | 'setup'>('login')
+  const [redirecting, setRedirecting] = useState(false)
 
   useEffect(() => {
     // Check if setup is needed
@@ -36,17 +37,48 @@ export default function LoginPage() {
       const data = await res.json()
       if (!res.ok) {
         setError(data.error || 'Something went wrong')
+        setLoading(false)
         return
       }
-      // Redirect to admin dashboard (hard navigation to ensure cookie is sent)
+
+      // Success — switch to redirecting state (don't reset loading)
+      setRedirecting(true)
+
+      // Hard navigation to ensure cookie is sent.
+      // Use replace() so the back button doesn't return to /login.
       const params = new URLSearchParams(window.location.search)
       const next = params.get('next') || '/admin'
-      window.location.href = next
+      window.location.replace(next)
+
+      // Fallback: if navigation hasn't happened after 3 seconds,
+      // show a manual link (some proxies/browsers block JS redirects)
+      setTimeout(() => {
+        setRedirecting(false)
+        setError('Redirect took too long. Click the button below to continue.')
+      }, 3000)
     } catch {
-      setError('Network error')
-    } finally {
+      setError('Network error — check your connection and try again.')
       setLoading(false)
     }
+    // NOTE: no finally block — we intentionally don't reset loading
+    // after a successful login, because the page should navigate away.
+  }
+
+  if (redirecting) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-zinc-50 to-zinc-100 dark:from-zinc-950 dark:to-zinc-900 p-4">
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 font-bold text-xl mb-4 animate-pulse">
+            CS
+          </div>
+          <h1 className="text-xl font-bold mb-2">Signing you in…</h1>
+          <p className="text-sm text-muted-foreground">Redirecting to the dashboard.</p>
+          <div className="mt-4">
+            <div className="inline-block w-6 h-6 border-2 border-zinc-300 dark:border-zinc-700 border-t-zinc-900 dark:border-t-zinc-100 rounded-full animate-spin" />
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -76,6 +108,7 @@ export default function LoginPage() {
               onChange={e => setEmail(e.target.value)}
               className="w-full px-3 py-2 rounded-md border bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-100"
               placeholder="you@example.com"
+              autoComplete="email"
             />
           </div>
           <div className="space-y-2">
@@ -88,6 +121,7 @@ export default function LoginPage() {
               onChange={e => setPassword(e.target.value)}
               className="w-full px-3 py-2 rounded-md border bg-transparent text-sm focus:outline-none focus:ring-2 focus:ring-zinc-900 dark:focus:ring-zinc-100"
               placeholder={mode === 'setup' ? 'At least 8 characters' : '••••••••'}
+              autoComplete={mode === 'setup' ? 'new-password' : 'current-password'}
             />
           </div>
 
@@ -100,9 +134,16 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 py-2 rounded-md text-sm font-medium hover:opacity-90 disabled:opacity-50 transition"
+            className="w-full bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 py-2 rounded-md text-sm font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
           >
-            {loading ? 'Please wait…' : mode === 'setup' ? 'Create Account & Sign In' : 'Sign In'}
+            {loading ? (
+              <>
+                <span className="inline-block w-4 h-4 border-2 border-white/30 dark:border-zinc-900/30 border-t-white dark:border-t-zinc-900 rounded-full animate-spin" />
+                {mode === 'setup' ? 'Creating account…' : 'Signing in…'}
+              </>
+            ) : (
+              mode === 'setup' ? 'Create Account & Sign In' : 'Sign In'
+            )}
           </button>
 
           {needsSetup === false && (
@@ -111,6 +152,18 @@ export default function LoginPage() {
             </p>
           )}
         </form>
+
+        {/* Fallback link if JS redirect fails */}
+        {error && error.includes('Redirect took too long') && (
+          <div className="mt-4 text-center">
+            <a
+              href="/admin"
+              className="inline-block bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 px-6 py-2 rounded-md text-sm font-medium hover:opacity-90"
+            >
+              Go to Dashboard →
+            </a>
+          </div>
+        )}
       </div>
     </div>
   )
