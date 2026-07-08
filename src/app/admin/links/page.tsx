@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import Link from 'next/link'
 import { PageHeader, Card } from '@/components/admin/AdminShell'
-import { Plus, Search, ExternalLink, Trash2, Copy, Check, Power, Shield, ShieldOff } from 'lucide-react'
+import { Plus, Search, ExternalLink, Trash2, Copy, Check, Power, Shield, ShieldOff, Eye } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
@@ -130,9 +131,12 @@ export default function AdminLinksPage() {
               <div key={link.id} className="p-4 flex items-center gap-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <code className={`text-sm font-medium ${!link.isActive ? 'line-through text-muted-foreground' : ''}`}>
+                    <Link
+                      href={`/admin/links/${link.id}`}
+                      className={`text-sm font-medium hover:underline ${!link.isActive ? 'line-through text-muted-foreground' : ''}`}
+                    >
                       /{link.slug}
-                    </code>
+                    </Link>
                     <button
                       onClick={() => copyText(`${window.location.origin}/${link.slug}`, `link-${link.id}`)}
                       className="text-muted-foreground hover:text-foreground"
@@ -163,6 +167,13 @@ export default function AdminLinksPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
+                  <Link
+                    href={`/admin/links/${link.id}`}
+                    className="p-2 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800 text-muted-foreground hover:text-foreground"
+                    title="View details & click logs"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </Link>
                   <a
                     href={`/${link.slug}`}
                     target="_blank"
